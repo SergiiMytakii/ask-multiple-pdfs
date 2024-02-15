@@ -65,7 +65,7 @@ def get_vectorstore(text_chunks, save_path=None):
 
 def get_conversation_chain(vectorstore):
     llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.5)
-    # llm = HuggingFaceHub(repo_id="google-bert/bert-base-uncased", huggingfacehub_api_token="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", task="text2text-generation")
+    # llm = HuggingFaceHub(repo_id="google-bert/bert-base-uncased", task="text2text-generation")
 
     
     memory = ConversationSummaryBufferMemory(
