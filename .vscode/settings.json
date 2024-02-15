@@ -1,0 +1,9 @@
+{
+    "python.autoComplete.extraPaths": [
+        "/Users/serhiimytakii/Library/Python/3.9/lib/python/site-packages ",
+       
+    ],
+    "python.analysis.extraPaths": [
+        "/Users/serhiimytakii/Library/Python/3.9/lib/python/site-packages "
+    ]
+}
