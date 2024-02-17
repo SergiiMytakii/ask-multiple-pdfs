@@ -31,8 +31,8 @@ def get_pdf_text(pdf_docs):
 def get_text_chunks(text):
     text_splitter = CharacterTextSplitter(
         separator="\n",
-        chunk_size=1000,
-        chunk_overlap=200,
+        chunk_size=1500,
+        chunk_overlap=300,
         length_function=len
     )
     chunks = text_splitter.split_text(text)
@@ -63,8 +63,8 @@ def get_vectorstore(text_chunks, save_path=None):
     return vectorstore
 
 
-def get_conversation_chain(vectorstore):
-    llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.5)
+def get_conversation_chain(vectorstore: FAISS):
+    llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0, verbose=True)
     # llm = HuggingFaceHub(repo_id="google-bert/bert-base-uncased", task="text2text-generation")
 
     
@@ -75,30 +75,19 @@ def get_conversation_chain(vectorstore):
     retriever=vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 6})
 
 
-    embeddings = OpenAIEmbeddings()
-    splitter = CharacterTextSplitter(chunk_size=334, chunk_overlap=0, separator=". ")
-    redundant_filter = EmbeddingsRedundantFilter(embeddings=embeddings, similarity_threshold=0.76)
-    relevant_filter = EmbeddingsFilter(embeddings=embeddings, similarity_threshold=0.76)
-    pipeline_compressor = DocumentCompressorPipeline(
-        transformers=[ splitter,
-            redundant_filter, relevant_filter,  ]
-    )
-    compression_retriever = ContextualCompressionRetriever(
-    base_compressor=pipeline_compressor, base_retriever=retriever
-)
+    #retriever=  compressor_retriever(retriever)
+
 
 
     template = """
     1. You are the lawyer consultant. 
-    2. Talk like a lawyer, but with simple words.
-    3. Use the following pieces of context to answer the question at the end.
-    4. Use three sentences maximum and keep the answer as concise as possible.
-    5. always ask a questions to get more context.
-    6. If you don't know the answer, try to find it your knowledge data about Ukranian law.
-    7. Greet the client in the first sentence.
-    8. Answer only in Ukrainian.
-    9. if you not sure, do not make up any law. Suggest to ask a lawyer.
-    10. treat letter "ґ" as "г".
+    2. Greet the client in the first sentence.
+    3. always ask a questions to get more context.
+    4. Use the following pieces of context to answer the question at the end.
+    5. If you don't know the answer, try to find it your knowledge data about Ukranian law.
+    5. Answer only in Ukrainian.
+    7. if you not sure, do not make up any law. Suggest to ask a lawyer.
+    8. treat letter "ґ" as "г".
 
     context: {context}
 
@@ -114,12 +103,25 @@ def get_conversation_chain(vectorstore):
 
     conversation_chain = ConversationalRetrievalChain.from_llm(
         llm=llm,
-        retriever=compression_retriever,
+        retriever=retriever,
         memory=memory,
         verbose= True,
         combine_docs_chain_kwargs={"prompt": prompt},
     )
-    return conversation_chain
+    return conversation_chain 
+
+def compressor_retriever(retriever):
+    embeddings = OpenAIEmbeddings()
+    splitter = CharacterTextSplitter(chunk_size=500, chunk_overlap=0, separator=". ")
+    redundant_filter = EmbeddingsRedundantFilter(embeddings=embeddings, similarity_threshold=0.76)
+    relevant_filter = EmbeddingsFilter(embeddings=embeddings, similarity_threshold=0.76)
+    pipeline_compressor = DocumentCompressorPipeline(
+        transformers=[ splitter,
+            redundant_filter, relevant_filter,  ]
+    )
+    compression_retriever = ContextualCompressionRetriever(base_compressor=pipeline_compressor, base_retriever=retriever)
+    return compression_retriever
+
 
 
 def handle_userinput(user_question):
@@ -158,7 +160,7 @@ def main():
                 if st.session_state.conversation is None:
                     st.session_state.conversation = get_conversation_chain(
                             vectorstore)
-                show_retriver_results(user_question, vectorstore)
+                # show_retriver_results(user_question, vectorstore)
                 handle_userinput(user_question)
             else: 
                 st.write("Please upload your documents first")
@@ -186,12 +188,7 @@ def main():
 
 def show_retriver_results(user_question, vectorstore):
     retriever=vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 6})
-    llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.5)
-    compressor = LLMChainFilter.from_llm(llm)
-    compression_retriever = ContextualCompressionRetriever(
-                base_compressor=compressor, base_retriever=retriever
-            )
-    retriever_results = compression_retriever.get_relevant_documents(user_question)
+    retriever_results = retriever.get_relevant_documents(user_question)
     pretty_print_docs(retriever_results)
 
 def pretty_print_docs(docs):
